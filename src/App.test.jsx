@@ -1,6 +1,7 @@
-import {render, screen, waitFor} from '@testing-library/react';
+import {render, screen,waitFor} from '@testing-library/react';
 import App from './App';
 import userEvent from "@testing-library/user-event";
+
 
 test('async update counter', async () => {
   render(<App />);
