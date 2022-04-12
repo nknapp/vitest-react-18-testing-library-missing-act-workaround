@@ -1,70 +1,65 @@
-# Getting Started with Create React App
+# Why?
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+I was trying to run tests using React 18, `@testing-library/react` and `vitest`.
+When testing React, you might have encountered the warning:
 
-## Available Scripts
+> Warning: An update to App inside a test was not wrapped in act(...).
+> ...
 
-In the project directory, you can run:
+This warning is printed, whenever a component updates and the control
+flow is not either inside an `act()` call, or a `waitFor()` call.
 
-### `yarn start`
+With `vitest` and React 18, this warning was printed, even though the code
+was clearly within `waitFor()`. I added a lot of `console.log`-statements in
+`node_modules` files to make sure of that.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+So here is what happens:
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+In the `react-dom/test-utils`, when the global variable `IS_REACT_ACT_ENVIRONMENT` is set to true, the `act()`-check is enabled.
+In that case, when a state-transition happens outside an `act()`-call, the warning is printed.
 
-### `yarn test`
+More about this can be read here: https://github.com/reactwg/react-18/discussions/102
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+The [waitFor](https://github.com/testing-library/dom-testing-library/blob/11fc7731e5081fd0994bf2da84d688fdb592eda7/src/wait-for.js#L190-L197)
+is wrapped with an [asyncWrapper](https://github.com/testing-library/react-testing-library/blob/c8c93f83228a68a270583c139972e79b1812b7d3/src/pure.js#L22-L30)
+that temporarily sets the global variable [IS_REACT_ACT_ENVIRONMENT](https://github.com/testing-library/react-testing-library/blob/c8c93f83228a68a270583c139972e79b1812b7d3/src/act-compat.js#L23)
+to `false`. No warning is printed for this time when the code runs inside a `waitFor`.
 
-### `yarn build`
+## Why is the warning printed in `vitest`?
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Apparently, there are two global objects in. In may case, when `waitFor` set the `IS_REACT_ACT_ENVIRONMENT` variable to `false`,
+it used [self](https://github.com/testing-library/react-testing-library/blob/c8c93f83228a68a270583c139972e79b1812b7d3/src/act-compat.js#L7).
+With `vitest`, this seems *not to be* the same als `globalThis`, which is accessed when React tries to figure out whether to show
+the warning of not [(see here)](https://github.com/facebook/react/blob/d5b6b4b865ebf13a1eaf2342d623101056e5e197/packages/react-reconciler/src/ReactFiberAct.old.js#L44)
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+When using `jest`, it seems to be the same object, because there is no warning.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Workaround
 
-### `yarn eject`
+My workaround is to define the `IS_REACT_ACT_ENVIRONMENT` property in [`vitest`'s setup method](src/setupVitest.js) in such a way
+that any access is delegated to the same property on the `self`-object.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```js
+Object.defineProperty(globalThis,"IS_REACT_ACT_ENVIRONMENT", {
+  get() {
+    if (typeof globalThis.self !== 'undefined') {
+      return globalThis.self.IS_REACT_ACT_ENVIRONMENT
+    }
+  },
+  set(value) {
+    if (typeof globalThis.self !== 'undefined') {
+      globalThis.self.IS_REACT_ACT_ENVIRONMENT = value
+    }
+  }
+})
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+globalThis.IS_REACT_ACT_ENVIRONMENT = true
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Reproducing the issue
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+* Run tests with jest `yarn test`: No warning is displayed
+* Run tests with vitest `yarn vitest`: The warning is display
+* Workaround: Remove the comments in front of the workaround code in [src/setupVitest.js](src/setupVitest.js)
+  and run `yarn vitest` again: No warning is displayed.
 
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `yarn build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
