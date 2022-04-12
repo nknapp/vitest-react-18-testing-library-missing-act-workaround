@@ -1,13 +1,13 @@
 # Why?
 
-I was trying to run tests using React 18, `@testing-library/react` and `vitest`.
-When testing React, you might have encountered the warning:
+I was trying to run tests using React 18, `@testing-library/react` and `vitest`
+and got the warning.
 
 > Warning: An update to App inside a test was not wrapped in act(...).
 > ...
 
-This warning is printed, whenever a component updates and the control
-flow is not either inside an `act()` call, or a `waitFor()` call.
+This warning is usually printed, whenever a component updates and the control
+flow is not either inside an `act()` call, but when using `@testing-library`-or a `waitFor()` call.
 
 With `vitest` and React 18, this warning was printed, even though the code
 was clearly within `waitFor()`. I added a lot of `console.log`-statements in
