@@ -1,3 +1,5 @@
+## The workaround is not required anymore for `vitest >= 0.12.6`
+
 # Why?
 
 I was trying to run tests using React 18, `@testing-library/react` and `vitest`
