@@ -1,4 +1,4 @@
-## The workaround is not required anymore for `vitest >= 0.12.6`
+## Update: The workaround is not required anymore for `vitest >= 0.12.6`
 
 # Why?
 
